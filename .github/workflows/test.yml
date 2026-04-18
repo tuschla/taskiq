@@ -22,9 +22,10 @@ jobs:
         cmd: ["black", "ruff", "mypy"]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
+          fetch-depth: 0
       - id: setup-uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -43,16 +44,11 @@ jobs:
         pydantic_ver: ["<2", ">=2.5,<3"]
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: "${{ matrix.os }}"
-    env:
-      UV_SYSTEM_PYTHON: 1
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Setup python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '${{ matrix.py_version }}' 
+          fetch-depth: 0
       - id: setup-uv
         name: Setup UV
         uses: astral-sh/setup-uv@v7
@@ -60,6 +56,7 @@ jobs:
           enable-cache: true
           cache-suffix: ${{ matrix.py_version }}
           github-token: ${{ github.token }}
+          python-version: '${{ matrix.py_version }}'
           version: "latest"
       - name: Install deps
         run: uv sync --all-extras
