@@ -51,17 +51,28 @@ class AckableMessage(BaseModel):
 
     It adds more reliability to brokers and system
     as a whole.
+
+    If your broker can also return a message to the
+    queue without acknowledging it, pass the `nack`
+    field. Taskiq calls it for messages it cannot
+    process at all, so they are not left unsettled.
     """
 
     data: bytes
     ack: Callable[[], Awaitable[None] | None]
+    nack: Callable[[], Awaitable[None] | None] | None = None
 
 
 class AckController:
     """Controls acknowledgement state for a received message."""
 
-    def __init__(self, ack: Callable[[], Awaitable[None] | None] | None) -> None:
+    def __init__(
+        self,
+        ack: Callable[[], Awaitable[None] | None] | None,
+        nack: Callable[[], Awaitable[None] | None] | None = None,
+    ) -> None:
         self._ack = ack
+        self._nack = nack
         self.is_acked = False
 
     @property
@@ -77,3 +88,12 @@ class AckController:
             return
         await maybe_awaitable(self._ack())
         self.is_acked = True
+
+    async def nack(self) -> None:
+        """Return the current message to the broker, without acking it.
+
+        Does nothing when the broker gave no `nack` callable: such brokers
+        cannot release a message, so it stays unsettled as before.
+        """
+        if self._nack is not None:
+            await maybe_awaitable(self._nack())

@@ -43,6 +43,26 @@ async def listen(self) -> AsyncGenerator[AckableMessage, None]:
       )
 ```
 
+If your broker can also return a message to the queue without acknowledging it,
+pass the `nack` field as well. Taskiq calls it for messages it cannot process
+at all: bodies it cannot parse and tasks the worker has no definition for.
+Without `nack` such a message is left unsettled, so it stays invisible until
+the broker's visibility timeout expires, even though no worker will ever run it.
+
+```python
+
+async def listen(self) -> AsyncGenerator[AckableMessage, None]:
+   for message in self.my_channel:
+      yield AckableMessage(
+         data=message.bytes,
+         ack=message.ack,
+         # Return the message to the queue, so another worker
+         # can take it. Dead-lettering it works here as well,
+         # if your broker counts redeliveries.
+         nack=message.nack,
+      )
+```
+
 ## Conventions
 
 For brokers, we have several conventions. It's good if your broker implements them.

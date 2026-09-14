@@ -372,6 +372,79 @@ async def test_callback_success_ackable_async() -> None:
     assert acked
 
 
+async def test_callback_unknown_task_nacks_message() -> None:
+    """Messages of unknown tasks are returned to the broker."""
+    broker = InMemoryBroker()
+    events: list[str] = []
+
+    receiver = get_receiver(broker)
+
+    broker_message = broker.formatter.dumps(
+        TaskiqMessage(
+            task_id="task_id",
+            task_name="tasks.task_from_another_release",
+            labels={},
+            args=[],
+            kwargs={},
+        ),
+    )
+
+    await receiver.callback(
+        AckableMessage(
+            data=broker_message.message,
+            ack=lambda: events.append("ack"),
+            nack=lambda: events.append("nack"),
+        ),
+    )
+
+    assert events == ["nack"]
+
+
+async def test_callback_unparseable_message_nacks_message() -> None:
+    """Messages that cannot be parsed are returned to the broker."""
+    events: list[str] = []
+
+    receiver = get_receiver()
+
+    await receiver.callback(
+        AckableMessage(
+            data=b"not a taskiq message",
+            ack=lambda: events.append("ack"),
+            nack=lambda: events.append("nack"),
+        ),
+    )
+
+    assert events == ["nack"]
+
+
+async def test_callback_unknown_task_without_nack_support() -> None:
+    """Brokers that cannot nack keep working with unknown tasks."""
+    broker = InMemoryBroker()
+    acked = False
+
+    def ack_callback() -> None:
+        nonlocal acked
+        acked = True
+
+    receiver = get_receiver(broker)
+
+    broker_message = broker.formatter.dumps(
+        TaskiqMessage(
+            task_id="task_id",
+            task_name="tasks.task_from_another_release",
+            labels={},
+            args=[],
+            kwargs={},
+        ),
+    )
+
+    await receiver.callback(
+        AckableMessage(data=broker_message.message, ack=ack_callback),
+    )
+
+    assert not acked
+
+
 async def test_task_ack_type_when_received_overrides_worker_ack_type() -> None:
     """Task ack_type label overrides worker-level ack type."""
     events: list[str] = []
